@@ -53,12 +53,12 @@ const yearlyStats = Array.from(yearlyMap.values()).sort((a: any, b: any) => pars
 const latest = yearlyStats[yearlyStats.length - 1];
 const earliest = yearlyStats[0];
 
-const selectivity = latest.Acceptances > 0 ? (latest.Applications / latest.Acceptances).toFixed(1) : 'N/A';
+const selectivity = latest && latest.Acceptances > 0 ? (latest.Applications / latest.Acceptances).toFixed(1) : 'N/A';
 
-const appDelta = latest.Applications - earliest.Applications;
+const appDelta = latest && earliest ? latest.Applications - earliest.Applications : 0;
 const appGrowthText = appDelta >= 0 
-  ? `increased by ${Math.abs(latest.growth_pct)}% between 2019 and 2025`
-  : `decreased by ${Math.abs(latest.growth_pct)}% between 2019 and 2025`;
+  ? `increased by ${Math.abs(latest?.growth_pct || 0)}% between 2019 and 2025`
+  : `decreased by ${Math.abs(latest?.growth_pct || 0)}% between 2019 and 2025`;
 
 const salaryMap = new Map();
 rows.forEach((r: any) => {
@@ -89,11 +89,11 @@ const salaryList = Array.from(salaryMap.values());
         </div>
         <div>
           <span class={`inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide ${
-            latest.demand_trend === 'Surging' ? 'bg-red-100 text-red-800' :
-            latest.demand_trend === 'Growing' ? 'bg-emerald-100 text-emerald-800' :
-            latest.demand_trend === 'Cooling' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+            latest?.demand_trend === 'Surging' ? 'bg-red-100 text-red-800' :
+            latest?.demand_trend === 'Growing' ? 'bg-emerald-100 text-emerald-800' :
+            latest?.demand_trend === 'Cooling' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
           }`}>
-            Demand: {latest.demand_trend} ({latest.growth_pct > 0 ? `+${latest.growth_pct}%` : `${latest.growth_pct}%`})
+            Demand: {latest?.demand_trend || 'Stable'} ({latest?.growth_pct > 0 ? `+${latest.growth_pct}%` : `${latest?.growth_pct || 0}%`})
           </span>
         </div>
       </div>
@@ -101,7 +101,7 @@ const salaryList = Array.from(salaryMap.values());
       <div class="bg-blue-50 border-l-4 border-brand-600 p-4 rounded-r-lg text-sm text-gray-800 space-y-2">
         <p class="font-semibold text-brand-900">💡 Executive Summary & Applicant Takeaways</p>
         <p>
-          In the 2025 entry cycle, <strong>{provider}</strong> received <strong>{latest.Applications.toLocaleString()} applications</strong> for {subject}, issuing <strong>{latest.Offers.toLocaleString()} offers</strong> and placing <strong>{latest.Acceptances.toLocaleString()} enrolled students</strong>.
+          In the 2025 entry cycle, <strong>{provider}</strong> received <strong>{latest?.Applications?.toLocaleString() || 0} applications</strong> for {subject}, issuing <strong>{latest?.Offers?.toLocaleString() || 0} offers</strong> and placing <strong>{latest?.Acceptances?.toLocaleString() || 0} enrolled students</strong>.
         </p>
         <p>
           Applicant demand has {appGrowthText}. The course currently requires approximately <strong>{selectivity} applicants per enrolled place</strong>.
@@ -112,15 +112,15 @@ const salaryList = Array.from(salaryMap.values());
     <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
       <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div class="text-xs font-medium text-gray-500 uppercase">Applications (2025)</div>
-        <div class="text-2xl font-extrabold text-gray-900 mt-1">{latest.Applications.toLocaleString()}</div>
+        <div class="text-2xl font-extrabold text-gray-900 mt-1">{latest?.Applications?.toLocaleString() || 0}</div>
       </div>
       <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div class="text-xs font-medium text-gray-500 uppercase">Offers Issued</div>
-        <div class="text-2xl font-extrabold text-emerald-700 mt-1">{latest.Offers.toLocaleString()}</div>
+        <div class="text-2xl font-extrabold text-emerald-700 mt-1">{latest?.Offers?.toLocaleString() || 0}</div>
       </div>
       <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div class="text-xs font-medium text-gray-500 uppercase">Acceptances</div>
-        <div class="text-2xl font-extrabold text-brand-600 mt-1">{latest.Acceptances.toLocaleString()}</div>
+        <div class="text-2xl font-extrabold text-brand-600 mt-1">{latest?.Acceptances?.toLocaleString() || 0}</div>
       </div>
       <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div class="text-xs font-medium text-gray-500 uppercase">Applicants / Place</div>
