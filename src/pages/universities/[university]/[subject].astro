@@ -1,0 +1,203 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { slugify } from '../../../utils/slugify';
+import fs from 'fs';
+import path from 'path';
+import { parse } from 'csv-parse/sync';
+
+export async function getStaticPaths() {
+  const filePath = path.join(process.cwd(), 'src/data/final_pseo_database.csv');
+  const fileContent = fs.readFileSync(filePath, 'utf8');
+  const records = parse(fileContent, { columns: true, skip_empty_lines: true });
+
+  const grouped = new Map();
+  records.forEach((row: any) => {
+    const key = `${row.provider_name}|${row.subject_group}`;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(row);
+  });
+
+  const paths = [];
+  for (const [key, rows] of grouped.entries()) {
+    const [provider, subject] = key.split('|');
+    paths.push({
+      params: { university: slugify(provider), subject: slugify(subject) },
+      props: { provider, subject, rows }
+    });
+  }
+  return paths;
+}
+
+const { provider, subject, rows } = Astro.props;
+
+// Aggregate yearly totals across legacy course code sub-rows
+const yearlyMap = new Map();
+rows.forEach((r: any) => {
+  const yr = r.Year;
+  if (!yearlyMap.has(yr)) {
+    yearlyMap.set(yr, {
+      Year: yr,
+      Applications: 0,
+      Offers: 0,
+      Acceptances: 0,
+      demand_trend: r.demand_trend || 'Stable',
+      growth_pct: parseFloat(r.apps_6y_growth_pct) || 0
+    });
+  }
+  const entry = yearlyMap.get(yr);
+  entry.Applications += parseInt(r.Applications) || 0;
+  entry.Offers += parseInt(r.Offers) || 0;
+  entry.Acceptances += parseInt(r.Acceptances) || 0;
+});
+
+const yearlyStats = Array.from(yearlyMap.values()).sort((a: any, b: any) => parseInt(a.Year) - parseInt(b.Year));
+const latest = yearlyStats[yearlyStats.length - 1];
+const earliest = yearlyStats[0];
+
+const selectivity = latest.Acceptances > 0 ? (latest.Applications / latest.Acceptances).toFixed(1) : 'N/A';
+
+// DiscoverUni-Style Takeaway Text Generator
+const appDelta = latest.Applications - earliest.Applications;
+const appGrowthText = appDelta >= 0 
+  ? `increased by ${Math.abs(latest.growth_pct)}% between 2019 and 2025`
+  : `decreased by ${Math.abs(latest.growth_pct)}% between 2019 and 2025`;
+
+// Deduplicate LEO Salaries for table display
+const salaryMap = new Map();
+rows.forEach((r: any) => {
+  if (r.cah2_subject_name && !salaryMap.has(r.cah2_subject_name)) {
+    salaryMap.set(r.cah2_subject_name, r);
+  }
+});
+const salaryList = Array.from(salaryMap.values());
+---
+
+<Layout 
+  title={`${provider} ${subject}: Admissions Stats & Graduate Salary`}
+  description={`Analysis of ${subject} at ${provider}. Features 2019-2025 UCAS application totals, offer counts, acceptances, and 1Y-5Y LEO salary outcomes.`}
+>
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    <!-- Breadcrumb Internal Links -->
+    <nav class="text-xs text-gray-500 mb-6 flex items-center space-x-2">
+      <a href="/" class="hover:text-brand-600">Home</a> <span>/</span>
+      <a href="/universities/" class="hover:text-brand-600">Universities</a> <span>/</span>
+      <a href={`/universities/${slugify(provider)}/`} class="hover:text-brand-600">{provider}</a> <span>/</span>
+      <span class="text-gray-900 font-medium">{subject}</span>
+    </nav>
+
+    <!-- HERO HEADER -->
+    <section class="bg-white border border-gray-200 rounded-xl p-6 md:p-8 mb-8 shadow-sm">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <div>
+          <span class="text-xs font-bold text-brand-600 uppercase tracking-widest">{provider}</span>
+          <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mt-1">{subject}</h1>
+        </div>
+        <div>
+          <span class={`inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide ${
+            latest.demand_trend === 'Surging' ? 'bg-red-100 text-red-800' :
+            latest.demand_trend === 'Growing' ? 'bg-emerald-100 text-emerald-800' :
+            latest.demand_trend === 'Cooling' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+          }`}>
+            Demand: {latest.demand_trend} ({latest.growth_pct > 0 ? `+${latest.growth_pct}%` : `${latest.growth_pct}%`})
+          </span>
+        </div>
+      </div>
+
+      <!-- DISCOVERUNI-STYLE INSIGHT TAKEAWAY BOX -->
+      <div class="bg-blue-50 border-l-4 border-brand-600 p-4 rounded-r-lg text-sm text-gray-800 space-y-2">
+        <p class="font-semibold text-brand-900">💡 Executive Summary & Applicant Takeaways</p>
+        <p>
+          In the 2025 entry cycle, <strong>{provider}</strong> received <strong>{latest.Applications.toLocaleString()} applications</strong> for {subject}, issuing <strong>{latest.Offers.toLocaleString()} offers</strong> and placing <strong>{latest.Acceptances.toLocaleString()} enrolled students</strong>.
+        </p>
+        <p>
+          Applicant demand has {appGrowthText}. The course currently requires approximately <strong>{selectivity} applicants per enrolled place</strong>.
+        </p>
+      </div>
+    </section>
+
+    <!-- KPI CARDS GRID -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+      <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+        <div class="text-xs font-medium text-gray-500 uppercase">Applications (2025)</div>
+        <div class="text-2xl font-extrabold text-gray-900 mt-1">{latest.Applications.toLocaleString()}</div>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+        <div class="text-xs font-medium text-gray-500 uppercase">Offers Issued</div>
+        <div class="text-2xl font-extrabold text-emerald-700 mt-1">{latest.Offers.toLocaleString()}</div>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+        <div class="text-xs font-medium text-gray-500 uppercase">Acceptances</div>
+        <div class="text-2xl font-extrabold text-brand-600 mt-1">{latest.Acceptances.toLocaleString()}</div>
+      </div>
+      <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+        <div class="text-xs font-medium text-gray-500 uppercase">Applicants / Place</div>
+        <div class="text-2xl font-extrabold text-amber-600 mt-1">{selectivity}</div>
+      </div>
+    </section>
+
+    <!-- HISTORICAL ADMISSIONS DATA TABLE (2019-2025) -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold text-gray-900 mb-4">Historical Admissions Trajectory (2019–2025)</h2>
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-semibold border-b border-gray-200">
+                <th class="p-4">Year</th>
+                <th class="p-4">Applications</th>
+                <th class="p-4">Offers Issued</th>
+                <th class="p-4">Acceptances</th>
+                <th class="p-4">Applicants / Place</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              {yearlyStats.map((r: any) => {
+                const ratio = r.Acceptances > 0 ? (r.Applications / r.Acceptances).toFixed(1) : 'N/A';
+                return (
+                  <tr class="hover:bg-gray-50 transition">
+                    <td class="p-4 font-bold text-gray-900">{r.Year}</td>
+                    <td class="p-4 font-medium">{r.Applications.toLocaleString()}</td>
+                    <td class="p-4 text-emerald-700 font-medium">{r.Offers.toLocaleString()}</td>
+                    <td class="p-4 text-brand-600 font-medium">{r.Acceptances.toLocaleString()}</td>
+                    <td class="p-4 font-bold text-amber-700">{ratio}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEO GRADUATE SALARY SECTION -->
+    {salaryList.length > 0 && (
+      <section class="mb-12">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">Graduate Career Earnings (LEO Data)</h2>
+        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr class="bg-gray-50 border-b border-gray-200 text-xs uppercase font-semibold text-gray-600">
+                  <th class="p-3">Course / Speciality</th>
+                  <th class="p-3">1 Year Post-Grad</th>
+                  <th class="p-3">3 Years Post-Grad</th>
+                  <th class="p-3">5 Years Post-Grad</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                {salaryList.map((s: any) => (
+                  <tr>
+                    <td class="p-3 font-medium text-gray-900">{s.cah2_subject_name || subject}</td>
+                    <td class="p-3 font-semibold text-blue-600">{s.salary_1yag ? `£${parseInt(s.salary_1yag).toLocaleString()}` : 'N/A'}</td>
+                    <td class="p-3 font-semibold text-indigo-600">{s.salary_3yag ? `£${parseInt(s.salary_3yag).toLocaleString()}` : 'N/A'}</td>
+                    <td class="p-3 font-semibold text-emerald-600">{s.salary_5yag ? `£${parseInt(s.salary_5yag).toLocaleString()}` : 'N/A'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    )}
+  </main>
+</Layout>
