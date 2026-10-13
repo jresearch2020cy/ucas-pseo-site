@@ -30,7 +30,6 @@ export async function getStaticPaths() {
 
 const { provider, subject, rows } = Astro.props;
 
-// Aggregate yearly totals across legacy course code sub-rows
 const yearlyMap = new Map();
 rows.forEach((r: any) => {
   const yr = r.Year;
@@ -56,13 +55,11 @@ const earliest = yearlyStats[0];
 
 const selectivity = latest.Acceptances > 0 ? (latest.Applications / latest.Acceptances).toFixed(1) : 'N/A';
 
-// DiscoverUni-Style Takeaway Text Generator
 const appDelta = latest.Applications - earliest.Applications;
 const appGrowthText = appDelta >= 0 
   ? `increased by ${Math.abs(latest.growth_pct)}% between 2019 and 2025`
   : `decreased by ${Math.abs(latest.growth_pct)}% between 2019 and 2025`;
 
-// Deduplicate LEO Salaries for table display
 const salaryMap = new Map();
 rows.forEach((r: any) => {
   if (r.cah2_subject_name && !salaryMap.has(r.cah2_subject_name)) {
@@ -77,7 +74,6 @@ const salaryList = Array.from(salaryMap.values());
   description={`Analysis of ${subject} at ${provider}. Features 2019-2025 UCAS application totals, offer counts, acceptances, and 1Y-5Y LEO salary outcomes.`}
 >
   <main class="max-w-5xl mx-auto px-4 py-8">
-    <!-- Breadcrumb Internal Links -->
     <nav class="text-xs text-gray-500 mb-6 flex items-center space-x-2">
       <a href="/" class="hover:text-brand-600">Home</a> <span>/</span>
       <a href="/universities/" class="hover:text-brand-600">Universities</a> <span>/</span>
@@ -85,7 +81,6 @@ const salaryList = Array.from(salaryMap.values());
       <span class="text-gray-900 font-medium">{subject}</span>
     </nav>
 
-    <!-- HERO HEADER -->
     <section class="bg-white border border-gray-200 rounded-xl p-6 md:p-8 mb-8 shadow-sm">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div>
@@ -103,7 +98,6 @@ const salaryList = Array.from(salaryMap.values());
         </div>
       </div>
 
-      <!-- DISCOVERUNI-STYLE INSIGHT TAKEAWAY BOX -->
       <div class="bg-blue-50 border-l-4 border-brand-600 p-4 rounded-r-lg text-sm text-gray-800 space-y-2">
         <p class="font-semibold text-brand-900">💡 Executive Summary & Applicant Takeaways</p>
         <p>
@@ -115,7 +109,6 @@ const salaryList = Array.from(salaryMap.values());
       </div>
     </section>
 
-    <!-- KPI CARDS GRID -->
     <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
       <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div class="text-xs font-medium text-gray-500 uppercase">Applications (2025)</div>
@@ -135,7 +128,6 @@ const salaryList = Array.from(salaryMap.values());
       </div>
     </section>
 
-    <!-- HISTORICAL ADMISSIONS DATA TABLE (2019-2025) -->
     <section class="mb-12">
       <h2 class="text-2xl font-bold text-gray-900 mb-4">Historical Admissions Trajectory (2019–2025)</h2>
       <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
@@ -169,7 +161,6 @@ const salaryList = Array.from(salaryMap.values());
       </div>
     </section>
 
-    <!-- LEO GRADUATE SALARY SECTION -->
     {salaryList.length > 0 && (
       <section class="mb-12">
         <h2 class="text-2xl font-bold text-gray-900 mb-4">Graduate Career Earnings (LEO Data)</h2>
